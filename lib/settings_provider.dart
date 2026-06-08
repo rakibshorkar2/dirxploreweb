@@ -54,7 +54,13 @@ class SettingsProvider with ChangeNotifier {
   Future<void> _loadSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _backendUrl = prefs.getString(keyBackendUrl) ?? const String.fromEnvironment('BACKEND_URL', defaultValue: 'http://localhost:3000');
+      const compileTimeUrl = String.fromEnvironment('BACKEND_URL', defaultValue: '');
+      final loadedUrl = prefs.getString(keyBackendUrl);
+      if (compileTimeUrl.isNotEmpty && (loadedUrl == null || loadedUrl == 'http://localhost:3000')) {
+        _backendUrl = compileTimeUrl;
+      } else {
+        _backendUrl = loadedUrl ?? (compileTimeUrl.isNotEmpty ? compileTimeUrl : 'http://localhost:3000');
+      }
       _httpServerUrl = prefs.getString(keyHttpServerUrl) ?? defaultHttpServer;
       _proxyHost = prefs.getString(keyProxyHost) ?? defaultProxyHost;
       _proxyPort = prefs.getInt(keyProxyPort) ?? defaultProxyPort;
