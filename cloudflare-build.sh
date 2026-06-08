@@ -20,6 +20,21 @@ flutter --version
 
 echo "=== Building Flutter Web ==="
 flutter config --enable-web
-flutter build web --release
+
+# Prepare BACKEND_URL argument if API_URL environment variable is provided
+DART_DEFINES=""
+if [ ! -z "$API_URL" ]; then
+  CLEAN_URL=$API_URL
+  # Add https:// prefix if it's missing (e.g. dirxploreweb-production.up.railway.app)
+  if [[ ! $CLEAN_URL =~ ^https?:// ]]; then
+    CLEAN_URL="https://$CLEAN_URL"
+  fi
+  echo "Detected API_URL environment variable. Injecting BACKEND_URL=$CLEAN_URL into the build."
+  DART_DEFINES="--dart-define=BACKEND_URL=$CLEAN_URL"
+else
+  echo "No API_URL environment variable detected. Falling back to localhost:3000"
+fi
+
+flutter build web --release $DART_DEFINES
 
 echo "=== Build Complete ==="

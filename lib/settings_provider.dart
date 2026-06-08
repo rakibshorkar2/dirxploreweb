@@ -21,7 +21,7 @@ class SettingsProvider with ChangeNotifier {
   static const String defaultProxyUser = 'test';
   static const String defaultProxyPass = 'test';
 
-  String _backendUrl = 'http://localhost:3000';
+  String _backendUrl = const String.fromEnvironment('BACKEND_URL', defaultValue: 'http://localhost:3000');
   String _httpServerUrl = defaultHttpServer;
   String _proxyHost = defaultProxyHost;
   int _proxyPort = defaultProxyPort;
@@ -54,7 +54,7 @@ class SettingsProvider with ChangeNotifier {
   Future<void> _loadSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _backendUrl = prefs.getString(keyBackendUrl) ?? 'http://localhost:3000';
+      _backendUrl = prefs.getString(keyBackendUrl) ?? const String.fromEnvironment('BACKEND_URL', defaultValue: 'http://localhost:3000');
       _httpServerUrl = prefs.getString(keyHttpServerUrl) ?? defaultHttpServer;
       _proxyHost = prefs.getString(keyProxyHost) ?? defaultProxyHost;
       _proxyPort = prefs.getInt(keyProxyPort) ?? defaultProxyPort;
