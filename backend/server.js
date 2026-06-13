@@ -145,11 +145,21 @@ app.get('/api/download/direct', async (req, res) => {
     
     // Pass Range and conditional range/validation headers if client requested them
     // This supports pausing/resuming in browser native downloads (especially Safari on iOS)
+    const generatedEtag = `"${crypto.createHash('md5').update(fileUrl).digest('hex')}"`;
     const headers = {};
     if (req.headers.range) headers['Range'] = req.headers.range;
-    if (req.headers['if-range']) headers['If-Range'] = req.headers['if-range'];
-    if (req.headers['if-match']) headers['If-Match'] = req.headers['if-match'];
-    if (req.headers['if-none-match']) headers['If-None-Match'] = req.headers['if-none-match'];
+
+    // Filter out our generated ETag from validation headers before forwarding to target
+    // server so target server doesn't fail comparison and return 200 OK instead of 206
+    if (req.headers['if-range'] && req.headers['if-range'] !== generatedEtag) {
+      headers['If-Range'] = req.headers['if-range'];
+    }
+    if (req.headers['if-match'] && req.headers['if-match'] !== generatedEtag) {
+      headers['If-Match'] = req.headers['if-match'];
+    }
+    if (req.headers['if-none-match'] && req.headers['if-none-match'] !== generatedEtag) {
+      headers['If-None-Match'] = req.headers['if-none-match'];
+    }
     if (req.headers['if-modified-since']) headers['If-Modified-Since'] = req.headers['if-modified-since'];
     if (req.headers['if-unmodified-since']) headers['If-Unmodified-Since'] = req.headers['if-unmodified-since'];
 
