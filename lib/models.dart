@@ -97,3 +97,80 @@ class DownloadItem {
     );
   }
 }
+
+class ProxyConfig {
+  final String host;
+  final int port;
+  final String username;
+  final String password;
+
+  ProxyConfig({
+    required this.host,
+    required this.port,
+    required this.username,
+    required this.password,
+  });
+
+  factory ProxyConfig.fromJson(Map<String, dynamic> json) {
+    return ProxyConfig(
+      host: json['host'] as String,
+      port: json['port'] as int,
+      username: json['username'] as String? ?? '',
+      password: json['password'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'host': host,
+      'port': port,
+      'username': username,
+      'password': password,
+    };
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProxyConfig &&
+          runtimeType == other.runtimeType &&
+          host == other.host &&
+          port == other.port &&
+          username == other.username &&
+          password == other.password;
+
+  @override
+  int get hashCode => Object.hash(host, port, username, password);
+}
+
+class BookmarkItem {
+  final String name;
+  final String path;
+
+  BookmarkItem({required this.name, required this.path});
+
+  factory BookmarkItem.fromJson(Map<String, dynamic> json) {
+    return BookmarkItem(
+      name: json['name'] as String,
+      path: json['path'] as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'path': path,
+    };
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BookmarkItem &&
+          runtimeType == other.runtimeType &&
+          path == other.path;
+
+  @override
+  int get hashCode => path.hashCode;
+}
+

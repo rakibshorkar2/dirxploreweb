@@ -143,11 +143,15 @@ app.get('/api/download/direct', async (req, res) => {
   try {
     const client = getAxiosClient();
     
-    // Pass Range header if client requested it (supports pausing/resuming in browser native downloads!)
+    // Pass Range and conditional range/validation headers if client requested them
+    // This supports pausing/resuming in browser native downloads (especially Safari on iOS)
     const headers = {};
-    if (req.headers.range) {
-      headers['Range'] = req.headers.range;
-    }
+    if (req.headers.range) headers['Range'] = req.headers.range;
+    if (req.headers['if-range']) headers['If-Range'] = req.headers['if-range'];
+    if (req.headers['if-match']) headers['If-Match'] = req.headers['if-match'];
+    if (req.headers['if-none-match']) headers['If-None-Match'] = req.headers['if-none-match'];
+    if (req.headers['if-modified-since']) headers['If-Modified-Since'] = req.headers['if-modified-since'];
+    if (req.headers['if-unmodified-since']) headers['If-Unmodified-Since'] = req.headers['if-unmodified-since'];
 
     const response = await client.get(fileUrl, {
       responseType: 'stream',
@@ -156,10 +160,25 @@ app.get('/api/download/direct', async (req, res) => {
 
     // Copy response status and headers
     res.status(response.status);
+    
+    // Always advertise range support
+    res.setHeader('Accept-Ranges', 'bytes');
+    
     if (response.headers['content-type']) res.setHeader('Content-Type', response.headers['content-type']);
     if (response.headers['content-length']) res.setHeader('Content-Length', response.headers['content-length']);
     if (response.headers['content-range']) res.setHeader('Content-Range', response.headers['content-range']);
-    if (response.headers['accept-ranges']) res.setHeader('Accept-Ranges', response.headers['accept-ranges']);
+    
+    // Forward or generate ETag (Safari requires a persistent ETag to resume)
+    if (response.headers['etag']) {
+      res.setHeader('ETag', response.headers['etag']);
+    } else {
+      const etag = crypto.createHash('md5').update(fileUrl).digest('hex');
+      res.setHeader('ETag', `"${etag}"`);
+    }
+
+    if (response.headers['last-modified']) {
+      res.setHeader('Last-Modified', response.headers['last-modified']);
+    }
     
     // Set attachment content disposition to force browser save dialog
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
