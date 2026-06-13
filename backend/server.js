@@ -190,8 +190,9 @@ app.get('/api/download/direct', async (req, res) => {
       res.setHeader('Last-Modified', response.headers['last-modified']);
     }
     
-    // Set attachment content disposition to force browser save dialog
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+    // Set content disposition (inline or attachment) based on query parameter
+    const isInline = req.query.inline === 'true';
+    res.setHeader('Content-Disposition', `${isInline ? 'inline' : 'attachment'}; filename="${encodeURIComponent(fileName)}"`);
 
     response.data.pipe(res);
   } catch (error) {

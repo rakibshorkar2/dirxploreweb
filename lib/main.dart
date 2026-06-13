@@ -1,11 +1,14 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'settings_provider.dart';
 import 'download_provider.dart';
 import 'api_service.dart';
 import 'models.dart';
 import 'download_helper.dart';
+import 'preview_helper.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(
@@ -48,93 +51,107 @@ class _GlassBackgroundState extends State<GlassBackground> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final value = _controller.value;
-        return Stack(
-          children: [
-            // Dark base background
-            Container(
-              color: const Color(0xFF030308),
+    return Stack(
+      children: [
+        // Isolate the animated background blobs with RepaintBoundary
+        // so that they repaint on their own layer at 120Hz without
+        // invalidating or repainting the main UI content layer.
+        Positioned.fill(
+          child: RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                final value = _controller.value;
+                return Stack(
+                  children: [
+                    // Dark base background
+                    Container(
+                      color: const Color(0xFF030308),
+                    ),
+                    // Glowing blob 1 (deep indigo/blue) - Top Left moving down-right
+                    Positioned(
+                      top: -120 + (value * 220),
+                      left: -120 + (value * 180),
+                      width: 500,
+                      height: 500,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              Colors.indigoAccent.withOpacity(0.16),
+                              Colors.indigoAccent.withOpacity(0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Glowing blob 2 (emerald/teal) - Bottom Right moving up-left
+                    Positioned(
+                      bottom: -80 - (value * 180),
+                      right: -80 + (value * 220),
+                      width: 550,
+                      height: 550,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              Colors.tealAccent.withOpacity(0.10),
+                              Colors.tealAccent.withOpacity(0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Glowing blob 3 (deep purple/magenta) - Mid Right moving left
+                    Positioned(
+                      top: 250 - (value * 120),
+                      right: -120 + (value * 140),
+                      width: 400,
+                      height: 400,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              Colors.purpleAccent.withOpacity(0.12),
+                              Colors.purpleAccent.withOpacity(0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Glowing blob 4 (soft violet) - Center left
+                    Positioned(
+                      top: 450 + (value * 100),
+                      left: -100 - (value * 50),
+                      width: 380,
+                      height: 380,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              Colors.deepPurpleAccent.withOpacity(0.12),
+                              Colors.deepPurpleAccent.withOpacity(0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
-            // Glowing blob 1 (deep indigo/blue) - Top Left moving down-right
-            Positioned(
-              top: -120 + (value * 220),
-              left: -120 + (value * 180),
-              width: 500,
-              height: 500,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.indigoAccent.withOpacity(0.16),
-                      Colors.indigoAccent.withOpacity(0.0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Glowing blob 2 (emerald/teal) - Bottom Right moving up-left
-            Positioned(
-              bottom: -80 - (value * 180),
-              right: -80 + (value * 220),
-              width: 550,
-              height: 550,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.tealAccent.withOpacity(0.10),
-                      Colors.tealAccent.withOpacity(0.0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Glowing blob 3 (deep purple/magenta) - Mid Right moving left
-            Positioned(
-              top: 250 - (value * 120),
-              right: -120 + (value * 140),
-              width: 400,
-              height: 400,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.purpleAccent.withOpacity(0.12),
-                      Colors.purpleAccent.withOpacity(0.0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Glowing blob 4 (soft violet) - Center left
-            Positioned(
-              top: 450 + (value * 100),
-              left: -100 - (value * 50),
-              width: 380,
-              height: 380,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.deepPurpleAccent.withOpacity(0.12),
-                      Colors.deepPurpleAccent.withOpacity(0.0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Content
-            widget.child,
-          ],
-        );
-      },
+          ),
+        ),
+        // Content layer - completely static during background animation ticks,
+        // saving CPU/GPU and enabling locked 120Hz/ProMotion scrolling.
+        Positioned.fill(
+          child: widget.child,
+        ),
+      ],
     );
   }
 }
@@ -1327,6 +1344,21 @@ class _DirectoryBrowserPageState extends State<DirectoryBrowserPage> {
     );
   }
 
+  bool _isPreviewable(String fileName) {
+    final parts = fileName.split('.');
+    if (parts.length < 2) return false;
+    final ext = parts.last.toLowerCase();
+    const previewableExtensions = {
+      'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg',
+      'mp4', 'webm', 'ogg', 'mov', 'm4v',
+      'avi', 'mkv', 'flv', 'ts', '3gp', 'mpeg', 'mpg', 'wmv',
+      'mp3', 'wav', 'm4a', 'aac',
+      'txt', 'log', 'json', 'js', 'dart', 'yaml', 'css', 'html', 'md', 'py', 'sh', 'xml', 'env',
+      'pdf'
+    };
+    return previewableExtensions.contains(ext);
+  }
+
   void _showFilePopup(DirectoryItem item) {
     showGlassDialog(
       context: context,
@@ -1359,7 +1391,7 @@ class _DirectoryBrowserPageState extends State<DirectoryBrowserPage> {
                 const SizedBox(height: 6),
               ],
               const SizedBox(height: 6),
-              const Text('Would you like to download this file directly to your local device?', style: TextStyle(color: Colors.white60, fontSize: 13)),
+              const Text('Would you like to preview or download this file directly?', style: TextStyle(color: Colors.white60, fontSize: 13)),
             ],
           ),
           actions: [
@@ -1367,6 +1399,33 @@ class _DirectoryBrowserPageState extends State<DirectoryBrowserPage> {
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
             ),
+            if (_isPreviewable(item.name)) ...[
+              const SizedBox(width: 8),
+              AnimatedPressable(
+                onTap: () {
+                  Navigator.pop(context);
+                  _showPreviewDialog(item);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurpleAccent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.visibility_rounded, size: 18, color: Colors.white),
+                      SizedBox(width: 6),
+                      Text(
+                        'Preview',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(width: 8),
             AnimatedPressable(
               onTap: () {
@@ -1393,6 +1452,447 @@ class _DirectoryBrowserPageState extends State<DirectoryBrowserPage> {
               ),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Future<String> _loadTextFile(String url) async {
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        return response.body;
+      }
+      return 'Failed to load content (HTTP: ${response.statusCode})';
+    } catch (e) {
+      return 'Error reading file content:\n$e';
+    }
+  }
+
+  IconData _getIconForExtension(String ext) {
+    if (ext == 'pdf') return Icons.picture_as_pdf_rounded;
+    if (ext == 'mp4' || ext == 'webm' || ext == 'ogg' || ext == 'mov' || ext == 'm4v' ||
+        ext == 'avi' || ext == 'mkv' || ext == 'flv' || ext == 'ts' || ext == '3gp' || ext == 'mpeg' || ext == 'mpg' || ext == 'wmv') {
+      return Icons.video_library_rounded;
+    }
+    if (ext == 'mp3' || ext == 'wav' || ext == 'm4a' || ext == 'aac') return Icons.audiotrack_rounded;
+    if (ext == 'png' || ext == 'jpg' || ext == 'jpeg' || ext == 'gif' || ext == 'webp' || ext == 'bmp' || ext == 'svg') return Icons.image_rounded;
+    return Icons.description_rounded;
+  }
+
+  void _showPreviewDialog(DirectoryItem item) {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final encodedUrl = Uri.encodeComponent(item.path);
+    final encodedName = Uri.encodeComponent(item.name);
+    
+    // Server streaming endpoints with inline parameter
+    final streamUrl = '${settings.backendUrl}/api/download/direct?url=$encodedUrl&name=$encodedName&inline=true';
+    
+    final parts = item.name.split('.');
+    final ext = parts.isNotEmpty ? parts.last.toLowerCase() : '';
+    
+    // Register views dynamically for HTML5 elements
+    String? webViewType;
+    if (ext == 'mp4' || ext == 'webm' || ext == 'ogg' || ext == 'mov' || ext == 'm4v' ||
+        ext == 'avi' || ext == 'mkv' || ext == 'flv' || ext == 'ts' || ext == '3gp' || ext == 'mpeg' || ext == 'mpg' || ext == 'wmv') {
+      webViewType = 'view-video-${item.name.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
+      triggerRegisterVideoView(webViewType, streamUrl);
+    } else if (ext == 'mp3' || ext == 'wav' || ext == 'm4a' || ext == 'aac') {
+      webViewType = 'view-audio-${item.name.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
+      triggerRegisterAudioView(webViewType, streamUrl);
+    } else if (ext == 'pdf') {
+      webViewType = 'view-pdf-${item.name.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
+      triggerRegisterIframeView(webViewType, streamUrl);
+    }
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Close Preview',
+      barrierColor: Colors.black.withOpacity(0.85),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            minimum: const EdgeInsets.only(top: 20, bottom: 20),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: GlassContainer(
+                  borderRadius: 24,
+                  opacity: 0.08,
+                  blur: 35,
+                  padding: const EdgeInsets.all(20),
+                  border: Border.all(color: Colors.white.withOpacity(0.08), width: 0.8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Dialog Title / Meta Header
+                      Row(
+                        children: [
+                          Icon(
+                            _getIconForExtension(ext),
+                            color: Colors.tealAccent,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.name,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (item.size != null)
+                                  Text(
+                                    _formatBytes(item.size),
+                                    style: TextStyle(
+                                      color: Colors.grey[400],
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                      const Divider(color: Colors.white10, height: 24),
+                      
+                      // Preview Pane content (Dynamic aspect ratio fit)
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight: MediaQuery.of(context).size.height * 0.55,
+                          ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              color: Colors.black.withOpacity(0.4),
+                              border: Border.all(color: Colors.white.withOpacity(0.04)),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: _buildPreviewBody(ext, streamUrl, webViewType),
+                          ),
+                        ),
+                      ),
+                      
+                      // Check if video format and show helpful external streaming controls
+                      if (ext == 'mp4' || ext == 'webm' || ext == 'ogg' || ext == 'mov' || ext == 'm4v' ||
+                          ext == 'avi' || ext == 'mkv' || ext == 'flv' || ext == 'ts' || ext == '3gp' || ext == 'mpeg' || ext == 'mpg' || ext == 'wmv') ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AnimatedPressable(
+                                onTap: () {
+                                  // Open stream in VLC
+                                  final vlcUrl = 'vlc://$streamUrl';
+                                  triggerDeviceDownload(vlcUrl, item.name);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orangeAccent.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.orangeAccent.withOpacity(0.35)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.play_circle_fill_rounded, size: 16, color: Colors.orangeAccent),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Play in VLC Player',
+                                        style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 11),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: AnimatedPressable(
+                                onTap: () {
+                                  // Copy stream link to clipboard
+                                  Clipboard.setData(ClipboardData(text: streamUrl));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Stream link copied to clipboard!'),
+                                      backgroundColor: Colors.teal,
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.tealAccent.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.tealAccent.withOpacity(0.35)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.content_copy_rounded, size: 16, color: Colors.tealAccent),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Copy Stream Link',
+                                        style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 11),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+
+                      // Non-native HTML5 browser support warning
+                      if (ext == 'avi' || ext == 'mkv' || ext == 'flv' || ext == 'ts' || ext == '3gp' || ext == 'wmv') ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.amberAccent.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.amberAccent.withOpacity(0.25)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, color: Colors.amberAccent, size: 16),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '.$ext format is not natively supported by all browsers. Try playing directly in VLC or copy the stream link.',
+                                  style: const TextStyle(color: Colors.amberAccent, fontSize: 11),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      
+                      // Dialog Actions Bar
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (ext == 'pdf')
+                            AnimatedPressable(
+                              onTap: () {
+                                triggerDeviceDownload(streamUrl, item.name);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.tealAccent.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.tealAccent.withOpacity(0.3)),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.open_in_new_rounded, size: 16, color: Colors.tealAccent),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Safari Native View',
+                                      style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else
+                            const SizedBox.shrink(),
+                          
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close', style: TextStyle(color: Colors.grey)),
+                              ),
+                              const SizedBox(width: 12),
+                              AnimatedPressable(
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  _triggerDirectDownload(item);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.tealAccent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.tealAccent.withOpacity(0.2),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.download_rounded, color: Colors.black, size: 16),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Save File',
+                                        style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return FadeTransition(
+          opacity: anim1,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.04),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic)),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPreviewBody(String ext, String streamUrl, String? webViewType) {
+    if (ext == 'png' || ext == 'jpg' || ext == 'jpeg' || ext == 'gif' || ext == 'webp' || ext == 'bmp' || ext == 'svg') {
+      return Center(
+        child: InteractiveViewer(
+          clipBehavior: Clip.none,
+          maxScale: 5.0,
+          child: Image.network(
+            streamUrl,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  color: Colors.tealAccent,
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                      : null,
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.broken_image_rounded, color: Colors.redAccent, size: 40),
+                    SizedBox(height: 8),
+                    Text('Failed to load image preview', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+    
+    if (ext == 'mp4' || ext == 'webm' || ext == 'ogg' || ext == 'mov' || ext == 'm4v' ||
+        ext == 'avi' || ext == 'mkv' || ext == 'flv' || ext == 'ts' || ext == '3gp' || ext == 'mpeg' || ext == 'mpg' || ext == 'wmv') {
+      if (webViewType != null) {
+        return Center(
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: HtmlElementView(viewType: webViewType),
+          ),
+        );
+      }
+    }
+    
+    if (ext == 'mp3' || ext == 'wav' || ext == 'm4a' || ext == 'aac') {
+      if (webViewType != null) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.music_note_rounded, color: Colors.tealAccent, size: 48),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 54,
+                  child: HtmlElementView(viewType: webViewType),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+    
+    if (ext == 'pdf') {
+      if (webViewType != null) {
+        return HtmlElementView(viewType: webViewType);
+      }
+    }
+    
+    return FutureBuilder<String>(
+      future: _loadTextFile(streamUrl),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.tealAccent),
+          );
+        }
+        
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error loading text preview:\n${snapshot.error}',
+              style: const TextStyle(color: Colors.redAccent),
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+        
+        final text = snapshot.data ?? '';
+        return Scrollbar(
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: SelectableText(
+              text,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: Colors.grey[200],
+                height: 1.4,
+              ),
+            ),
+          ),
         );
       },
     );
